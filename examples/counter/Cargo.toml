@@ -1,0 +1,11 @@
+[package]
+name = "counter"
+description = "A basic Industrious Core counter example"
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+industrious-core = { path = "../../crates/industrious-core/" }
