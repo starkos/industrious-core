@@ -1,7 +1,12 @@
-// Copyright (c) 2025 Industrious One, LLC
+// Copyright (c) 2025 Industrious One LLC
 // SPDX-License-Identifier: MIT
 
-use std::io::{self, Error, ErrorKind, Write};
+use std::{
+	any::Any,
+	io::{self, Error, ErrorKind, Write},
+};
+
+use industrious_core::Store;
 
 // Let's start out by defining our program's state. For this example, all
 // we're tracking is one integer value, but this state can become as complex
@@ -28,10 +33,21 @@ impl ProgramState {
 	}
 }
 
+// The reducer accepts the current program state and an action, and
+// performs the corresponding mutation(s). The operation is purely
+// functional; the old state is left unchanged, and a new one is
+// returned.
+
+fn reducer(state: ProgramState, _action: &dyn Any) -> ProgramState {
+	state
+}
+
 // The program itself starts here with good ol' `main()`.
 
 fn main() -> io::Result<()> {
 	show_usage();
+
+	let _store = Store::new(ProgramState::default(), reducer);
 
 	// Initialize the program state
 	let mut state = ProgramState::default();
