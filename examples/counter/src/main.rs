@@ -3,34 +3,28 @@
 
 use std::{
 	any::Any,
-	io::{self, Error, ErrorKind, Write},
+	io::{self, Write},
+	num::ParseIntError,
+	result,
 };
 
 use industrious_core::Store;
 
-// Let's start out by defining our program's state. For this example, all
-// we're tracking is one integer value, but this state can become as complex
-// as you like,
+// Let's start out by defining our program's state, which for this simple
+// example is just the counter value.
 
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, Default)]
 struct ProgramState {
-	pub count: isize,
+	count: isize,
 }
 
-// For the moment, to get this test harness up and running, I'm hardcoding
-// the available operations on the state. Once things are properly up and
-// running we'll be doing this through mutation messages instead.
+// Our list of actions. I'm using an `enum` here for convenience, but
+// actions may be any type which implements `Any`.
 
-impl ProgramState {
-	pub fn increment(&mut self, amount: isize) -> io::Result<()> {
-		self.count += amount;
-		Ok(())
-	}
-
-	pub fn reset(&mut self) -> io::Result<()> {
-		self.count = 0;
-		Ok(())
-	}
+enum Action {
+	Increment { amount: isize },
+	Decrement { amount: isize },
+	Reset,
 }
 
 // The reducer accepts the current program state and an action, and
@@ -38,19 +32,30 @@ impl ProgramState {
 // functional; the old state is left unchanged, and a new one is
 // returned.
 
-fn reducer(state: ProgramState, _action: &dyn Any) -> ProgramState {
+fn reducer(state: ProgramState, action: &dyn Any) -> ProgramState {
+	if let Some(a) = action.downcast_ref::<Action>() {
+		return match a {
+			Action::Increment { amount } => ProgramState {
+				count: state.count + amount,
+			},
+
+			Action::Decrement { amount } => ProgramState {
+				count: state.count - amount,
+			},
+
+			Action::Reset => ProgramState { count: 0 },
+		};
+	}
+
+	// If we don't recognize the action, return the state unmodified
 	state
 }
-
-// The program itself starts here with good ol' `main()`.
 
 fn main() -> io::Result<()> {
 	show_usage();
 
-	let _store = Store::new(ProgramState::default(), reducer);
-
-	// Initialize the program state
-	let mut state = ProgramState::default();
+	// Initialize our program's state
+	let store = Store::new(ProgramState::default(), reducer);
 
 	// Run the user input loop
 	let mut stdout = io::stdout().lock();
@@ -65,45 +70,34 @@ fn main() -> io::Result<()> {
 		io::stdin().read_line(&mut buffer)?;
 		let input = buffer.trim();
 
-		// Process the user's input. Right now I'm mutating the program's
-		// state directly, which obviously isn't behavior which scales to
-		// larger programs. Later this will be done by dispatch messages
-		// to the store
-
+		// Parse the user's input, and send an appropriate action to the store
 		let (first_char, remainder) = input.split_at(1);
-		let result = match first_char {
+		match first_char {
 			"+" => match parse_amount(remainder) {
-				Ok(amount) => state.increment(amount),
-				Err(error) => Err(error),
+				Ok(amount) => store.dispatch(&Action::Increment { amount }),
+				Err(_) => writeln!(stdout, "\"{}\" is not a valid integer", remainder)?,
 			},
 
 			"-" => match parse_amount(remainder) {
-				Ok(amount) => state.increment(-amount),
-				Err(error) => Err(error),
+				Ok(amount) => store.dispatch(&Action::Decrement { amount }),
+				Err(_) => writeln!(stdout, "\"{}\" is not a valid integer", remainder)?,
 			},
 
-			"r" => state.reset(),
+			"r" => store.dispatch(&Action::Reset),
 
 			"q" => break,
 
-			_ => Err(Error::new(
-				ErrorKind::InvalidInput,
-				format!("unknown command \"{}\"", input),
-			)),
+			_ => writeln!(stdout, "\"{}\" is not a valid command", input)?,
 		};
 
-		// Display the new result; when everything is up and running this
-		// will be done in a store observer, and be event driven
-		match result {
-			Ok(_) => writeln!(stdout, "Counter value is now {}", state.count)?,
-			Err(error) => writeln!(stdout, "{}", error)?,
-		}
+		// TODO counter value should come out of an observer
+		writeln!(stdout, "Counter value is now {}", store.state().count)?;
 	}
 
 	Ok(())
 }
 
-fn parse_amount(input: &str) -> io::Result<isize> {
+fn parse_amount(input: &str) -> result::Result<isize, ParseIntError> {
 	let input = input.trim();
 
 	// if no number is provided, default to one
@@ -112,12 +106,7 @@ fn parse_amount(input: &str) -> io::Result<isize> {
 	}
 
 	// otherwise try to parse and return the integer value
-	input.parse::<isize>().map_err(|_| {
-		Error::new(
-			ErrorKind::InvalidInput,
-			format!("\"{}\" is not an integer", input),
-		)
-	})
+	input.parse::<isize>()
 }
 
 fn show_usage() {
