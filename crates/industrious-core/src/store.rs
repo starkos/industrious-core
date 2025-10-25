@@ -1,12 +1,12 @@
 // Copyright (c) 2025 Industrious One LLC
 // SPDX-License-Identifier: MIT
 
-use std::{any::Any, cell::Cell};
+use std::{any::Any, cell::RefCell};
 
 use crate::Reducer;
 
 pub struct Store<S, R> {
-	state: Cell<S>,
+	state: RefCell<S>,
 	reducer: R,
 }
 
@@ -17,17 +17,20 @@ where
 {
 	pub fn new(initial_state: S, root_reducer: R) -> Self {
 		Self {
-			state: Cell::new(initial_state),
+			state: RefCell::new(initial_state),
 			reducer: root_reducer,
 		}
 	}
 
-	pub fn state(&self) -> S {
-		self.state.get()
+	pub fn dispatch(&self, action: &dyn Any) {
+		self.state
+			.replace_with(|state| self.reducer.reduce(state, action));
 	}
 
-	pub fn dispatch(&self, action: &dyn Any) {
-		let old_state = self.state.get();
-		self.state.set(self.reducer.reduce(&old_state, action));
+	pub fn select<F, T>(&self, selector: F) -> T
+	where
+		F: Fn(&S) -> T,
+	{
+		selector(&self.state.borrow())
 	}
 }

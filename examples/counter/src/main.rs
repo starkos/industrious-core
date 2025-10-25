@@ -92,7 +92,11 @@ fn main() -> io::Result<()> {
 		};
 
 		// TODO counter value should come out of an observer
-		writeln!(stdout, "Counter value is now {}", store.state().count)?;
+		writeln!(
+			stdout,
+			"Counter value is now {}",
+			store.select(|state| state.count)
+		)?;
 	}
 
 	Ok(())
