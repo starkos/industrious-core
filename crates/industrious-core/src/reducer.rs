@@ -4,14 +4,14 @@
 use std::any::Any;
 
 pub trait Reducer<S> {
-	fn reduce(&self, state: S, action: &dyn Any) -> S;
+	fn reduce(&self, state: &S, action: &dyn Any) -> S;
 }
 
 impl<F, S> Reducer<S> for F
 where
-	F: Fn(S, &dyn Any) -> S,
+	F: Fn(&S, &dyn Any) -> S,
 {
-	fn reduce(&self, state: S, action: &dyn Any) -> S {
+	fn reduce(&self, state: &S, action: &dyn Any) -> S {
 		self(state, action)
 	}
 }

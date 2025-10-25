@@ -11,7 +11,8 @@ use std::{
 use industrious_core::Store;
 
 // Let's start out by defining our program's state, which for this simple
-// example is just the counter value.
+// example is just the counter value. I'd rather the Copy trait was required
+// but for the time being it is.
 
 #[derive(Clone, Copy, Debug, Default)]
 struct ProgramState {
@@ -19,7 +20,7 @@ struct ProgramState {
 }
 
 // Our list of actions. I'm using an `enum` here for convenience, but
-// actions may be any type which implements `Any`.
+// actions may be anything which implements `Any`.
 
 enum Action {
 	Increment { amount: isize },
@@ -32,7 +33,7 @@ enum Action {
 // functional; the old state is left unchanged, and a new one is
 // returned.
 
-fn reducer(state: ProgramState, action: &dyn Any) -> ProgramState {
+fn reducer(state: &ProgramState, action: &dyn Any) -> ProgramState {
 	if let Some(a) = action.downcast_ref::<Action>() {
 		return match a {
 			Action::Increment { amount } => ProgramState {
@@ -48,7 +49,7 @@ fn reducer(state: ProgramState, action: &dyn Any) -> ProgramState {
 	}
 
 	// If we don't recognize the action, return the state unmodified
-	state
+	*state
 }
 
 fn main() -> io::Result<()> {

@@ -27,7 +27,7 @@ where
 	}
 
 	pub fn dispatch(&self, action: &dyn Any) {
-		self.state
-			.set(self.reducer.reduce(self.state.get(), action));
+		let old_state = self.state.get();
+		self.state.set(self.reducer.reduce(&old_state, action));
 	}
 }
